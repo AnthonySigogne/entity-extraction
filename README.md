@@ -17,9 +17,7 @@ To launch in debug mode :
 FLASK_APP=index.py FLASK_DEBUG=1 flask run
 ```
 
-To list all services of API, type this endpoint in your web browser : "http://localhost:5000/"
-
-## USAGE
+To list all services of API, type this endpoint in your web browser : "http://localhost:5000/".
 
 ## USAGE AND EXAMPLE
 The example below shows how to extract entities from an English text with cURL :
