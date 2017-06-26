@@ -31,7 +31,7 @@ def entity_extraction():
     Method : POST
     Form data :
         - text : the text to analyze
-        - lang : language of text ("fr" or "en")
+        - language : language of text ("fr" or "en")
     Return a JSON dictionary with one key : {"entities":[list of entities]}
     """
     def query_dbpedia(entity, lang) :
@@ -80,27 +80,34 @@ def entity_extraction():
 
     # get POST data
     data = dict((key, request.form.get(key)) for key in request.form.keys())
-    data["content"] = data["content"][:7000] # limit text content to 7000 characters
 
     # get entities with dbpedia spotlight tool
+    if "text" not in data :
+        raise InvalidUsage('No text specified in POST data')
+    if "language" not in data :
+        raise InvalidUsage('No language specified in POST data')
+    if data["language"] not in ["fr", "en"] :
+        raise InvalidUsage('Unsupported language')
     port = 2225 if data["language"] == "fr" else 2222
     confidence = 0.3 if data["language"] == "fr" else 0.5
-    res = subprocess.check_output(["curl","http://spotlight.sztaki.hu:%d/rest/annotate"%port,'--data-urlencode',"text=%s"%data["content"].encode("utf8"),'--data',"confidence=%f"%confidence,'-H',"Accept: application/json"])
+    res = subprocess.check_output(["curl","http://spotlight.sztaki.hu:%d/rest/annotate"%port,'--data-urlencode',"text=%s"%data["text"].encode("utf8"),'--data',"confidence=%f"%confidence,'-H',"Accept: application/json"])
 
     # browse entities and get dbpedia data
     entities = []
     for entity in json.loads(res.decode("utf8")).get("Resources",[]) :
         if float(entity["@similarityScore"]) > 0.92 : # only entities with high similarity score
-            entities.append(query_dbpedia(entity, data["language"]))
+            entity = query_dbpedia(entity, data["language"])
+            if entity not in entities :
+                entities.append(entity)
 
+    # return the final list of entities
     return jsonify(entities=entities)
 
 @app.route("/")
 def helper():
     """
     URL : /
-    Helper that list all methods of tool.
-    Return a simple text.
+    Helper that list all services of API.
     """
     # print module docstring
     output = [__doc__.replace("\n","<br/>"),]
@@ -116,3 +123,30 @@ def helper():
         output.append(app.view_functions[rule.endpoint].__doc__.replace("\n","<br/>"))
 
     return "<br/>".join(output)
+
+class InvalidUsage(Exception):
+    """
+    Custom invalid usage exception.
+    """
+    status_code = 400
+
+    def __init__(self, message, status_code=None, payload=None):
+        Exception.__init__(self)
+        self.message = message
+        if status_code is not None:
+            self.status_code = status_code
+        self.payload = payload
+
+    def to_dict(self):
+        rv = dict(self.payload or ())
+        rv['message'] = self.message
+        return rv
+
+@app.errorhandler(InvalidUsage)
+def handle_invalid_usage(error):
+    """
+    JSON version of invalid usage exception
+    """
+    response = jsonify(error.to_dict())
+    response.status_code = error.status_code
+    return response
