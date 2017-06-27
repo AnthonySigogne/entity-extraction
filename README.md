@@ -83,3 +83,14 @@ The result is a list of entities in a JSON dictionary :
 
 ## NOTE
 This API works with Python2 and Python3.
+
+## DOCKER
+To build this API for Docker :
+```
+docker build -t <name> .
+```
+
+To run the Docker container :
+```
+docker run -p <port>:5000 <name>
+```
